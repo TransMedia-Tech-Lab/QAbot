@@ -27,7 +27,7 @@ class LabSlackBot:
         def handle_app_mention(body: Dict[str, Any], say, logger) -> None:  # type: ignore[no-untyped-def]
             event = body.get("event", {})
             text = event.get("text", "")
-            thread_ts = event.get("thread_ts")
+            thread_ts = event.get("thread_ts") or event.get("ts")
             channel = event.get("channel")
             logger.info("app_mention received in %s: %s", channel, text)
 
