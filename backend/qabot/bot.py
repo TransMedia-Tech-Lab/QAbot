@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
@@ -27,13 +27,40 @@ class LabSlackBot:
         def handle_app_mention(body: Dict[str, Any], say, logger) -> None:  # type: ignore[no-untyped-def]
             event = body.get("event", {})
             text = event.get("text", "")
-            thread_ts = event.get("thread_ts") or event.get("ts")
-            logger.debug("Received mention: %s", text)
+            thread_ts = event.get("thread_ts")
+            channel = event.get("channel")
+            logger.info("app_mention received in %s: %s", channel, text)
+
+            if not channel:
+                logger.error("Cannot reply: channel not found in event payload")
+                return
 
             answer = knowledge.lookup_answer(text)
             response = answer if answer else self._settings.default_response
 
-            say(text=response, thread_ts=thread_ts)
+            say_kwargs: Dict[str, Any] = {"text": response, "channel": channel}
+            if thread_ts:
+                say_kwargs["thread_ts"] = thread_ts
+
+            say(**say_kwargs)
+
+        @self._app.event("message")
+        def handle_direct_message(body: Dict[str, Any], say, logger) -> None:  # type: ignore[no-untyped-def]
+            event = body.get("event", {})
+            if event.get("channel_type") != "im" or event.get("bot_id") or event.get("subtype"):
+                return
+
+            text = event.get("text", "")
+            channel = event.get("channel")
+            logger.info("DM received from %s: %s", event.get("user"), text)
+
+            if not channel:
+                logger.error("Cannot reply to DM: channel missing in payload")
+                return
+
+            answer = knowledge.lookup_answer(text)
+            response = answer if answer else self._settings.default_response
+            say(text=response, channel=channel)
 
         @self._app.event("app_home_opened")
         def handle_app_home_opened(body: Dict[str, Any], client, logger) -> None:  # type: ignore[no-untyped-def]
@@ -68,4 +95,3 @@ class LabSlackBot:
         """Start Socket Mode handler."""
         handler = SocketModeHandler(self._app, self._settings.app_token)
         handler.start()
-
