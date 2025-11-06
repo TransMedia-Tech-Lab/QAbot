@@ -15,10 +15,31 @@ Slackでメンションすると研究室に関するFAQを返してくれる簡
    ```bash
    uv sync
    ```
-2. `.env` を作成:
+2. Slackアプリのトークンを取得:
+   - [Slack API](https://api.slack.com/apps) の「Your Apps」ページにアクセス
+   - 使用するアプリの**アプリ名**（例: 「Lambda notify」）をクリックして、アプリの詳細設定ページに移動
+   - **SLACK_BOT_TOKEN** (`xoxb-` で始まるトークン):
+     - 左メニューの「**OAuth & Permissions**」をクリック
+     - ページ上部の「**Bot User OAuth Token**」セクションを確認
+     - 「**xoxb-**」で始まるトークンを「**Copy**」ボタンでコピー
+     - もしトークンが表示されていない場合は、ページ上部の「**Install to Workspace**」ボタンをクリックしてワークスペースにインストール
+   - **SLACK_SIGNING_SECRET**:
+     - 左メニューの「**Basic Information**」をクリック
+     - 「**App Credentials**」セクションまでスクロール
+     - 「**Signing Secret**」の横にある「**Show**」をクリックして表示
+     - 表示されたシークレットをコピー
+   - **SLACK_APP_TOKEN** (`xapp-` で始まるトークン):
+     - 左メニューの「**Basic Information**」をクリック
+     - 「**App-Level Tokens**」セクションまでスクロール
+     - 「**Generate Token and Scopes**」ボタンをクリック
+     - トークン名を入力（例: 「Socket Mode」）
+     - スコープに「**connections:write**」を追加
+     - 「**Generate**」をクリックしてトークンを作成
+     - 表示された「**xapp-**」で始まるトークンをコピー（この画面でしか表示されないため注意）
+3. `.env` を作成:
    ```bash
    cp .env.example .env
-   # SLACK_BOT_TOKEN, SLACK_APP_TOKEN, SLACK_SIGNING_SECRET を設定
+   # 取得したトークンを設定
    ```
 
 ## 起動方法
