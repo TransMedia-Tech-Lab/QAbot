@@ -13,3 +13,17 @@
 
 バックエンドの詳しいセットアップやFAQカスタマイズ手順は `backend/README.md` を参照してください。
 
+### コミットルール
+
+- コミットメッセージは [Conventional Commits](https://www.conventionalcommits.org/ja/v1.0.0/) に準拠して記述してください（例: `feat: add lab schedule intent`）。
+- 1コミット1トピックを徹底し、不要なファイルや秘密情報（`.env` など）はステージングしないでください。
+- feature ブランチで作業し、`main` への直接コミットは避けてください。
+- 主なタイプ:
+  - `feat`: 新しい機能
+  - `fix`: バグ修正
+  - `docs`: ドキュメントのみ
+  - `style`: 空白やフォーマットなど
+  - `refactor`: 挙動に影響しないリファクタ
+  - `perf`: パフォーマンス改善
+  - `test`: テスト追加・修正
+  - `chore`: ビルド・ツール・依存管理
