@@ -1,0 +1,24 @@
+{
+  "folders": [
+    {
+      "name": "QAbot",
+      "path": "."
+    },
+    {
+      "name": "Backend",
+      "path": "backend"
+    },
+    {
+      "name": "Frontend",
+      "path": "frontend"
+    }
+  ],
+  "settings": {
+    "files.exclude": {
+      "**/__pycache__": true,
+      ".venv": true,
+      "backend/.venv": true
+    },
+    "python.analysis.typeCheckingMode": "basic"
+  }
+}
