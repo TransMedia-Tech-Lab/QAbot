@@ -55,7 +55,7 @@ class EsaClient:
             }
         )
 
-    def search_posts(self, query: str, *, per_page: int = 3) -> List[EsaPost]:
+    def search_posts(self, query: str, *, per_page: int = 10) -> List[EsaPost]:
         if not query:
             return []
 
@@ -105,16 +105,25 @@ class EsaAnswerProvider:
         if cached and now - cached[0] < self._cache_ttl:
             return cached[1]
 
-        answer: Optional[str] = None
-        for query in _build_queries(normalized):
+        keywords = _extract_keywords(normalized)
+        best_candidate: tuple[Optional[EsaPost], int] = (None, -1)
+        for query in _build_queries(normalized, keywords):
             try:
                 posts = self._client.search_posts(query)
             except EsaClientError:
                 logger.exception("esa API 呼び出しに失敗しました (query=%s)", query)
                 break
             if posts:
-                answer = format_post_answer(posts[0])
-                break
+                selected, score = _select_best_post(posts, keywords)
+                if selected and score > best_candidate[1]:
+                    best_candidate = (selected, score)
+                if keywords and score >= len(keywords):
+                    break
+
+        selected = best_candidate[0]
+        answer: Optional[str] = None
+        if selected:
+            answer = format_post_answer(selected)
 
         self._cache[cache_key] = (now, answer)
         return answer
@@ -172,21 +181,14 @@ STOPWORDS = {
 }
 
 
-def _build_queries(text: str) -> Iterable[str]:
+def _build_queries(text: str, keywords: Optional[List[str]] = None) -> Iterable[str]:
     """Generate progressively broader esa検索クエリ."""
     yielded: List[str] = []
     if text:
         yielded.append(text)
         yield text
 
-    tokens = []
-    for token in _tokenize(text):
-        if len(token) < 2:
-            continue
-        if token in STOPWORDS:
-            continue
-        if token not in tokens:
-            tokens.append(token)
+    tokens = keywords if keywords is not None else _extract_keywords(text)
 
     if tokens:
         joined = " ".join(tokens)
@@ -239,3 +241,38 @@ def _char_class(ch: str) -> str:
     if "a" <= lower <= "z":
         return "latin"
     return "other"
+
+
+def _extract_keywords(text: str) -> List[str]:
+    keywords: List[str] = []
+    for token in _tokenize(text):
+        token = token.strip()
+        if len(token) < 2 or token in STOPWORDS:
+            continue
+        if token not in keywords:
+            keywords.append(token)
+    return keywords
+
+
+def _select_best_post(posts: List[EsaPost], keywords: List[str]) -> tuple[Optional[EsaPost], int]:
+    if not posts:
+        return None, -1
+
+    if not keywords:
+        return posts[0], 0
+
+    best_post = posts[0]
+    best_score = -1
+    lowered_keywords = [kw.lower() for kw in keywords]
+
+    for post in posts:
+        title = (post.title or "").lower()
+        body = (post.body_md or "").lower()
+        title_hits = sum(1 for kw in lowered_keywords if kw in title)
+        body_hits = sum(1 for kw in lowered_keywords if kw in body)
+        score = title_hits * 3 + body_hits
+        if score > best_score:
+            best_post = post
+            best_score = score
+
+    return best_post, best_score

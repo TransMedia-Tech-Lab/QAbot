@@ -112,7 +112,9 @@ class LabSlackBot:
         handler.start()
 
     def _build_response(self, message_text: str) -> str:
-        answer = knowledge.lookup_answer(message_text)
-        if not answer and self._esa_provider:
+        answer = None
+        if self._esa_provider:
             answer = self._esa_provider.lookup(message_text)
+        if not answer:
+            answer = knowledge.lookup_answer(message_text)
         return answer if answer else self._settings.default_response
