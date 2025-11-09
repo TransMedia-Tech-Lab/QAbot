@@ -41,7 +41,7 @@ class GemmaChatTransformers:
             # 量子化なし、GPU使用
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                torch_dtype=torch.float16,
+                dtype=torch.float16,
                 device_map="auto",
                 low_cpu_mem_usage=True
             )
@@ -49,7 +49,7 @@ class GemmaChatTransformers:
             # CPU使用
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                torch_dtype=torch.float32,
+                dtype=torch.float32,
                 device_map="cpu"
             )
         
@@ -132,7 +132,7 @@ def select_device():
     print("="*60)
     print("使用するデバイスを選択してください")
     print("="*60)
-    print("1. CPU (推奨, 遅いが確実)")
+    print("1. CPU (推奨)")
     print("2. GPU (CUDA対応, 可能な場合)")
     
     while True:
