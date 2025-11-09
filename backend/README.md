@@ -41,7 +41,12 @@ Slackでメンションすると研究室に関するFAQを返してくれる簡
    cp .env.example .env
    # 取得したトークンを設定
    ```
-4. （任意）esaを検索ソースに追加したい場合は以下も `.env` に設定:
+
+4. HuggingFaceにログイン:
+   - HuggingFaceからGemmaをインストールするため行ってください。
+   
+
+5. （任意）esaを検索ソースに追加したい場合は以下も `.env` に設定:
    - `ESA_TEAM`: esaのチーム名（サブドメイン）
    - `ESA_API_TOKEN`: 読み取り権限を持つ Personal Access Token
    - `ESA_BASE_URL`: self-host やカスタムドメインを使う場合のみ書き換え
