@@ -44,6 +44,9 @@ Slackでメンションすると研究室に関するFAQを返してくれる簡
 
 4. HuggingFaceにログイン:
    - HuggingFaceからGemmaをインストールするため行ってください。
+   - `https://huggingface.co/settings/tokens` にて Access Token を取得してください。
+   - 取得したトークンは悪用されないように **厳重に管理してください。**
+   - `huggingface-cli login` をコンソールで実行し、表示される指示に従って先程の Access Tokens をペーストしてください。
    
 
 5. （任意）esaを検索ソースに追加したい場合は以下も `.env` に設定:
