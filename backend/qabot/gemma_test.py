@@ -10,13 +10,21 @@ class GemmaChatTransformers:
         """
         モデルとトークナイザーを初期化
         model_name: "google/gemma-3n-e2b-it"
-        use_quantization: True で 8bit量子化
+        use_quantization: True で 4bit量子化 (NF4)
         device: "cpu" または "cuda"
         """
         print(f"モデル '{model_name}' をロード中...")
         print(f"使用デバイス: {device}")
-        print(f"量子化: {'有効' if use_quantization else '無効'}\n")
-        
+        print(f"量子化: {'有効' if use_quantization else '無効'}")
+        print(f"PyTorchバージョン: {torch.__version__}")
+
+        # PyTorch 2.0以降でtorch.compile()が利用可能
+        torch_version = tuple(map(int, torch.__version__.split('.')[:2]))
+        if torch_version >= (2, 0):
+            print("torch.compile()による最適化: 有効\n")
+        else:
+            print("torch.compile()による最適化: 無効 (PyTorch 2.0以降が必要)\n")
+
         self.device = device
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
         
@@ -26,33 +34,68 @@ class GemmaChatTransformers:
         
         # 量子化の設定（メモリ削減）
         if use_quantization and device == "cuda":
-            print("8bit量子化を適用中...\n")
+            print("4bit量子化 (NF4) を適用中...\n")
             quantization_config = BitsAndBytesConfig(
-                load_in_8bit=True,
-                llm_int8_threshold=200.0,
+                load_in_4bit=True,
+                bnb_4bit_compute_dtype=torch.float16,
+                bnb_4bit_use_double_quant=True,
+                bnb_4bit_quant_type="nf4"
             )
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
                 quantization_config=quantization_config,
-                device_map="cuda",
-                low_cpu_mem_usage=True
+                device_map="auto",
+                low_cpu_mem_usage=True,
+                torch_dtype=torch.float16
             )
+            # torch.compile()で推論を最適化
+            try:
+                print("モデルをコンパイル中（初回実行時は時間がかかります）...\n")
+                self.model = torch.compile(self.model, mode="reduce-overhead")
+                print("モデルのコンパイルが完了しました\n")
+            except Exception as e:
+                print(f"モデルのコンパイルに失敗しました（通常モードで続行）: {e}\n")
         elif device == "cuda":
             # 量子化なし、GPU使用
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_name,
-                dtype=torch.float16,
+                torch_dtype=torch.float16,
                 device_map="auto",
                 low_cpu_mem_usage=True
             )
+            # torch.compile()で推論を最適化
+            try:
+                print("モデルをコンパイル中（初回実行時は時間がかかります）...\n")
+                self.model = torch.compile(self.model, mode="reduce-overhead")
+                print("モデルのコンパイルが完了しました\n")
+            except Exception as e:
+                print(f"モデルのコンパイルに失敗しました（通常モードで続行）: {e}\n")
         else:
-            # CPU使用
-            self.model = AutoModelForCausalLM.from_pretrained(
-                model_name,
-                dtype=torch.float32,
-                device_map="cpu"
-            )
-        
+            # CPU使用（bfloat16で高速化、float32より軽量）
+            try:
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=torch.bfloat16,
+                    device_map="cpu",
+                    low_cpu_mem_usage=True
+                )
+                print("bfloat16を使用してモデルをロードしました\n")
+            except Exception as e:
+                print(f"bfloat16でのロードに失敗、float32にフォールバック: {e}\n")
+                self.model = AutoModelForCausalLM.from_pretrained(
+                    model_name,
+                    torch_dtype=torch.float32,
+                    device_map="cpu",
+                    low_cpu_mem_usage=True
+                )
+            # torch.compile()で推論を最適化
+            try:
+                print("モデルをコンパイル中（初回実行時は時間がかかります）...\n")
+                self.model = torch.compile(self.model, mode="reduce-overhead")
+                print("モデルのコンパイルが完了しました\n")
+            except Exception as e:
+                print(f"モデルのコンパイルに失敗しました（通常モードで続行）: {e}\n")
+
         self.conversation_history = []
         print("モデル準備完了！\n")
     
@@ -62,58 +105,51 @@ class GemmaChatTransformers:
             "role": "user",
             "content": user_message
         })
-        
-        # 会話履歴をテキストに変換
-        conversation_text = self._format_conversation()
-        
+
         try:
+            # Gemmaの公式chat_templateを使用（より最適化されている）
+            chat_text = self.tokenizer.apply_chat_template(
+                self.conversation_history,
+                tokenize=False,
+                add_generation_prompt=True
+            )
+
             # トークン化
             inputs = self.tokenizer(
-                conversation_text,
+                chat_text,
                 return_tensors="pt",
-                padding=True,
                 return_attention_mask=True
             ).to(self.device)
-            
-            input_ids = inputs["input_ids"]
-            attention_mask = inputs["attention_mask"]
-            
-            # 生成
-            with torch.no_grad():
+
+            # 生成（最適化されたパラメータ）
+            # torch.inference_mode()はtorch.no_grad()より高速
+            with torch.inference_mode():
                 output_ids = self.model.generate(
-                    input_ids,
-                    attention_mask=attention_mask,
+                    **inputs,
                     max_new_tokens=max_new_tokens,
                     temperature=0.7,
                     top_p=0.9,
                     do_sample=True,
-                    eos_token_id=self.tokenizer.eos_token_id,
+                    num_beams=1,  # ビームサーチなし（サンプリング使用時は1）
+                    use_cache=True,  # KVキャッシュを有効化
+                    repetition_penalty=1.1,  # 繰り返しを減らす
                     pad_token_id=self.tokenizer.eos_token_id
                 )
-            
+
             # デコード（入力部分を除く）
-            response_tokens = output_ids[0, input_ids.shape[1]:]
+            response_tokens = output_ids[0, inputs["input_ids"].shape[1]:]
             response = self.tokenizer.decode(response_tokens, skip_special_tokens=True).strip()
-            
+
             # 会話履歴に追加
             self.conversation_history.append({
                 "role": "assistant",
                 "content": response
             })
-            
+
             return response
-        
+
         except Exception as e:
             return f"エラーが発生しました: {str(e)}"
-    
-    def _format_conversation(self) -> str:
-        """会話履歴をモデル用のテキスト形式に変換"""
-        formatted = ""
-        for msg in self.conversation_history:
-            role = "user" if msg["role"] == "user" else "model"
-            formatted += f"{role}: {msg['content']}\n"
-        formatted += "model: "
-        return formatted
     
     def clear_history(self):
         """会話履歴をクリア"""
