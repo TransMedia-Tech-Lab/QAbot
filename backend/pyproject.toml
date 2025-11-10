@@ -1,11 +1,19 @@
 [project]
-name = "qabot"
+name = "ragbot"
 version = "0.1.0"
-description = "Add your description here"
+description = "Slack bot with RAG capabilities using esa articles"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
     "slack-bolt>=1.26.0",
+    "numpy>=2.1.0",
+    "sentence-transformers>=3.0.1",
+    "chromadb>=0.4.22",
+    "ollama>=0.1.6",
+    "google-generativeai>=0.3.2",
+    "anthropic>=0.34.0",
+    "tiktoken>=0.8.0",
+    "loguru>=0.7.2",
 ]

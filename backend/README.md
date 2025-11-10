@@ -1,50 +1,52 @@
 ## 概要
 
-Slackでメンションすると研究室に関するFAQを返してくれる簡易Botです。Socket Modeで動作するため、社内公開は不要です。
+`backend/` には esa 記事を検索・同期し、ChromaDB + LLM で回答する Slack RAG ボットが含まれます。エントリポイントは `main.py` のみで、Slack Socket Mode に対応しています。
 
-## 必要なもの
+## ディレクトリ構成
 
-- Slackアプリ（Bot Token Scopes 例: `app_mentions:read`, `chat:write`, `commands`, `im:history`）
-- App-Level Token（`connections:write`）
-- Bot User OAuth Token
-- Python 3.13（`uv`が自動で `.venv` を作成）
+```
+backend/
+├── main.py            # ResearchLabBot のエントリポイント
+├── ragbot/            # bot実装・esaクライアント・RAG/LLMユーティリティ
+│   ├── bot.py
+│   ├── esa_client.py
+│   ├── vector_store.py
+│   ├── llm_manager.py
+│   └── sync_database.py
+├── chroma_db/         # ChromaDBの永続化ディレクトリ（.gitignore）
+├── logs/              # loguru が出力するログ（.gitignore）
+├── .env.example       # 必須環境変数のサンプル
+├── pyproject.toml     # uv 用プロジェクト設定
+└── uv.lock            # 依存関係ロックファイル
+```
 
 ## セットアップ
 
-1. 依存関係をインストール:
+1. 依存関係をインストール
    ```bash
+   cd backend
    uv sync
    ```
-2. Slackアプリのトークンを取得:
-   - [Slack API](https://api.slack.com/apps) の「Your Apps」ページにアクセス
-   - 使用するアプリの**アプリ名**（例: 「Lambda notify」）をクリックして、アプリの詳細設定ページに移動
-   - **SLACK_BOT_TOKEN** (`xoxb-` で始まるトークン):
-     - 左メニューの「**OAuth & Permissions**」をクリック
-     - ページ上部の「**Bot User OAuth Token**」セクションを確認
-     - 「**xoxb-**」で始まるトークンを「**Copy**」ボタンでコピー
-     - もしトークンが表示されていない場合は、ページ上部の「**Install to Workspace**」ボタンをクリックしてワークスペースにインストール
-   - **SLACK_SIGNING_SECRET**:
-     - 左メニューの「**Basic Information**」をクリック
-     - 「**App Credentials**」セクションまでスクロール
-     - 「**Signing Secret**」の横にある「**Show**」をクリックして表示
-     - 表示されたシークレットをコピー
-   - **SLACK_APP_TOKEN** (`xapp-` で始まるトークン):
-     - 左メニューの「**Basic Information**」をクリック
-     - 「**App-Level Tokens**」セクションまでスクロール
-     - 「**Generate Token and Scopes**」ボタンをクリック
-     - トークン名を入力（例: 「Socket Mode」）
-     - スコープに「**connections:write**」を追加
-     - 「**Generate**」をクリックしてトークンを作成
-     - 表示された「**xapp-**」で始まるトークンをコピー（この画面でしか表示されないため注意）
-3. `.env` を作成:
+2. 環境変数を設定
    ```bash
    cp .env.example .env
-   # 取得したトークンを設定
+   # Slack / esa / LLM を記入
    ```
-4. （任意）esaを検索ソースに追加したい場合は以下も `.env` に設定:
-   - `ESA_TEAM`: esaのチーム名（サブドメイン）
-   - `ESA_API_TOKEN`: 読み取り権限を持つ Personal Access Token
-   - `ESA_BASE_URL`: self-host やカスタムドメインを使う場合のみ書き換え
+3. 初回起動時に自動で `chroma_db/` `logs/` が作成されます。必要に応じて事前に `mkdir -p chroma_db logs` しておいても構いません。
+
+## 主要な環境変数
+
+| 変数 | 用途 |
+| --- | --- |
+| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_SIGNING_SECRET` | Slack 認証情報 |
+| `ESA_ACCESS_TOKEN`, `ESA_TEAM_NAME` | esa API へのアクセスに使用（`ESA_API_TOKEN` / `ESA_TEAM` でも可） |
+| `CHROMA_PERSIST_DIRECTORY`, `EMBEDDING_MODEL` | ベクトルDB保存先と埋め込みモデル |
+| `LOG_LEVEL`, `LOG_FILE` | loguru の出力設定 |
+| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | ローカル LLM の設定（優先度1） |
+| `GEMINI_API_KEY` | Google Gemini API キー（優先度2） |
+| `ANTHROPIC_API_KEY` | Anthropic Claude API キー（優先度3） |
+
+詳細は `.env.example` を参照してください。
 
 ## 起動方法
 
@@ -52,12 +54,20 @@ Slackでメンションすると研究室に関するFAQを返してくれる簡
 uv run python main.py
 ```
 
-起動後、SlackでBotにメンションすると登録済みキーワード（研究テーマ / メンバー構成 / ミーティング / 設備 / 募集）から最適な回答を返します。該当キーワードがない場合は、esa連携が有効なら最新の記事を検索・要約し、それでも見つからない場合は `LAB_DEFAULT_RESPONSE` を返します。
+- 初回起動時に esa から記事を取得して `chroma_db/` に保存します。
+- Slackではメンション／DM／`/lab` コマンドに対応します。
+  - `/lab search <質問>` … esa + RAG で検索し、回答と参照URLを返します。
+  - `/lab sync` … esa→ChromaDB の同期を手動で実行します。
+  - `/lab stats` … チャンク数や利用中のLLMなどを表示します。
 
-## FAQのカスタマイズ
+CLIから直接同期したい場合は以下を実行してください。
 
-`qabot/knowledge.py` の `DEFAULT_ENTRIES` を編集すると、キーワードと回答を自由に差し替えできます。`keywords` のタプルに検索したい語句を追加し、`answer` を研究室向けの文章に更新してください。`python main.py` を再起動すると即時反映されます。
+```bash
+uv run python -m ragbot.sync_database
+```
 
-## esa連携の仕組み
+## 運用メモ
 
-`ESA_TEAM` と `ESA_API_TOKEN` が設定されていると、Botはメンション内容を esa API の検索クエリとして投げ、最新更新順でヒットした記事のタイトル・冒頭テキスト・URLをSlackに投稿します。検索結果は最長10分間ローカルキャッシュするため、レート制限や一時的な通信エラーが起きてもBotが落ちることはありません。
+- `logs/bot.log` に日次ローテーションでアプリログが保存されます。障害解析や同期状況の監視に活用してください。
+- `chroma_db/` はChromaDBの永続化ディレクトリです。バックアップや定期的なクリーンアップを検討してください。
+- 依存関係・ドキュメントは `pyproject.toml` とこの `README.md` に集約されています。
