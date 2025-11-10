@@ -85,6 +85,43 @@ class EsaClient:
             )
         return posts
 
+    def get_all_posts(self, *, per_page: int = 100, page: int = 1) -> List[EsaPost]:
+        """
+        全記事を取得（クエリなし）
+
+        Args:
+            per_page: 1ページあたりの記事数
+            page: ページ番号
+
+        Returns:
+            記事のリスト
+        """
+        url = f"{self._base_url}/teams/{self._team}/posts"
+        params = {
+            "per_page": per_page,
+            "page": page,
+            "sort": "updated",
+            "order": "desc",
+        }
+
+        try:
+            response = self._session.get(url, params=params, timeout=self._timeout)
+            response.raise_for_status()
+        except requests.RequestException as exc:
+            raise EsaClientError(f"esa API request failed: {exc}") from exc
+
+        data = response.json()
+        posts = []
+        for item in data.get("posts", []):
+            posts.append(
+                EsaPost(
+                    title=item.get("name", "Untitled"),
+                    url=item.get("url") or "",
+                    body_md=item.get("body_md") or item.get("body_html") or "",
+                )
+            )
+        return posts
+
 
 class EsaAnswerProvider:
     """Answer generator that queries esa.io and caches recent results."""

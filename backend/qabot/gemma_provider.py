@@ -155,22 +155,102 @@ class GemmaAnswerProvider:
 
         history = self._thread_histories[thread_id]
 
-        # ユーザーメッセージを履歴に追加
+        # 一時的な履歴を作成（まだhistoryには追加しない）
+        temp_history = history + [{
+            "role": "user",
+            "content": user_message
+        }]
+
+        try:
+            # Gemmaで応答を生成
+            response = self._gemma_chat.generate_response(temp_history, max_new_tokens)
+        except Exception as e:
+            self._logger.error(f"応答生成中にエラーが発生: {e}", exc_info=True)
+            response = f"申し訳ございません。応答の生成中にエラーが発生しました: {str(e)}"
+
+        # 成功・失敗に関わらず、ユーザーメッセージとアシスタントの応答を履歴に追加
         history.append({
             "role": "user",
             "content": user_message
         })
-
-        # Gemmaで応答を生成
-        response = self._gemma_chat.generate_response(history, max_new_tokens)
-
-        # アシスタントの応答を履歴に追加
         history.append({
             "role": "assistant",
             "content": response
         })
 
         self._logger.info(f"スレッド {thread_id} に応答を生成（履歴: {len(history)}メッセージ）")
+
+        return response
+
+    def get_response_with_context(
+        self,
+        thread_id: str,
+        user_message: str,
+        context_documents: List[str],
+        max_new_tokens: int = 512
+    ) -> str:
+        """
+        コンテキスト（参考資料）を含めて応答を生成（RAG）
+
+        Args:
+            thread_id: スレッドID（会話履歴の識別子）
+            user_message: ユーザーからのメッセージ
+            context_documents: 参考資料のリスト（esa記事の本文など）
+            max_new_tokens: 生成する最大トークン数
+
+        Returns:
+            Gemmaからの応答
+        """
+        # スレッドの会話履歴を取得または作成
+        if thread_id not in self._thread_histories:
+            self._thread_histories[thread_id] = []
+
+        history = self._thread_histories[thread_id]
+
+        # コンテキストを含むプロンプトを構築
+        context_text = "\n\n".join([
+            f"【参考資料{i+1}】\n{doc}" for i, doc in enumerate(context_documents)
+        ])
+
+        augmented_message = f"""以下の参考資料を基に、ユーザーの質問に答えてください。
+
+{context_text}
+
+【ユーザーの質問】
+{user_message}
+
+【回答ルール】
+1. 参考資料の内容を基に、正確かつ簡潔に回答してください
+2. 参考資料に情報がない場合は「参考資料には記載がありませんでした」と正直に答えてください
+3. 参考資料を引用する際は、どの資料を参照したか明示してください
+4. 日本語で回答してください"""
+
+        # 拡張されたプロンプトで一時的な履歴を作成（まだhistoryには追加しない）
+        temp_history = history + [{
+            "role": "user",
+            "content": augmented_message
+        }]
+
+        try:
+            # Gemmaで応答を生成
+            response = self._gemma_chat.generate_response(temp_history, max_new_tokens)
+        except Exception as e:
+            self._logger.error(f"RAG応答生成中にエラーが発生: {e}", exc_info=True)
+            response = f"申し訳ございません。応答の生成中にエラーが発生しました: {str(e)}"
+
+        # 成功・失敗に関わらず、ユーザーメッセージとアシスタントの応答を履歴に追加
+        history.append({
+            "role": "user",
+            "content": user_message
+        })
+        history.append({
+            "role": "assistant",
+            "content": response
+        })
+
+        self._logger.info(
+            f"スレッド {thread_id} にRAG応答を生成（コンテキスト: {len(context_documents)}件、履歴: {len(history)}メッセージ）"
+        )
 
         return response
 
