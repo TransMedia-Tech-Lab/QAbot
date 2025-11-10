@@ -2,13 +2,13 @@
 
 このリポジトリは Slack 研究室Botの **backend** と、今後拡張予定の **frontend** を分けて管理します。
 
-- `backend/` : Slack Bolt を使ったBotアプリ（uv 仮想環境、Socket Mode対応）。
+- `backend/` : esa×ChromaDB×LLM でRAG回答を行うSlack Bot（uv 仮想環境、Socket Mode対応）。詳細は `backend/README.md` を参照してください。
 - `frontend/` : UIや設定画面を追加する場合のプレースホルダ。
 
 ### 使い方
 
-1. `cd backend` して従来どおり `uv sync` / `uv run python main.py` を実行します。
-2. `.env.example` も `backend/` 以下にあるので、そこでトークンを設定してください。esa.io に記事をまとめている場合は `ESA_TEAM` / `ESA_API_TOKEN` を設定すると自動で記事検索して回答します。
+1. `cd backend` して `uv sync` を実行し、依存関係を揃えます。
+2. `.env.example` を元に環境変数を設定したら、`uv run python main.py` を実行してください。
 3. フロントエンドを追加したい場合は `frontend/` 内に任意のフレームワークで実装してください（現状は空ディレクトリ）。
 
 バックエンドの詳しいセットアップやFAQカスタマイズ手順は `backend/README.md` を参照してください。
