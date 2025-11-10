@@ -63,7 +63,7 @@ uv run python main.py
 CLIから直接同期したい場合は以下を実行してください。
 
 ```bash
-uv run python -m ragbot.sync_database
+uv run ragbot/sync_database.py
 ```
 
 ## 運用メモ
