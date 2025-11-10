@@ -6,6 +6,8 @@ from typing import Optional, Dict, List
 from abc import ABC, abstractmethod
 from loguru import logger
 
+from .config import DEFAULT_OLLAMA_BASE_URL, DEFAULT_OLLAMA_MODEL
+
 
 class LLMProvider(ABC):
     """LLMプロバイダの基底クラス"""
@@ -176,8 +178,8 @@ class LLMManager:
         if os.getenv("OLLAMA_MODEL"):
             logger.info("Ollamaプロバイダを使用します")
             return OllamaProvider(
-                base_url=os.getenv("OLLAMA_BASE_URL", "http://localhost:11434"),
-                model=os.getenv("OLLAMA_MODEL", "llama3")
+                base_url=os.getenv("OLLAMA_BASE_URL", DEFAULT_OLLAMA_BASE_URL),
+                model=os.getenv("OLLAMA_MODEL", DEFAULT_OLLAMA_MODEL)
             )
         
         # Gemini API（優先度2）

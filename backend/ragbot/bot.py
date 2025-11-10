@@ -12,6 +12,12 @@ from loguru import logger
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
+from .config import (
+    DEFAULT_CHROMA_PERSIST_DIRECTORY,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_LOG_FILE_BOT,
+)
 from .esa_client import EsaClient
 from .llm_manager import LLMManager
 from .vector_store import RAGEngine, VectorStore
@@ -32,8 +38,8 @@ class ResearchLabBot:
         logger.info("ResearchLabBot initialised")
 
     def _setup_logging(self) -> None:
-        log_level = os.getenv("LOG_LEVEL", "INFO")
-        log_file = os.getenv("LOG_FILE", "./logs/bot.log")
+        log_level = os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
+        log_file = os.getenv("LOG_FILE", DEFAULT_LOG_FILE_BOT)
         log_dir = os.path.dirname(log_file) or "."
         os.makedirs(log_dir, exist_ok=True)
         logger.add(
@@ -50,11 +56,11 @@ class ResearchLabBot:
             raise RuntimeError("ESA_ACCESS_TOKEN/ESA_TEAM_NAME もしくは ESA_API_TOKEN/ESA_TEAM を設定してください。")
 
         self.esa_client = EsaClient(access_token=access_token, team_name=team_name)
-        persist_directory = os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_db")
+        persist_directory = os.getenv("CHROMA_PERSIST_DIRECTORY", DEFAULT_CHROMA_PERSIST_DIRECTORY)
         os.makedirs(persist_directory, exist_ok=True)
         self.vector_store = VectorStore(
             persist_directory=persist_directory,
-            embedding_model=os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base"),
+            embedding_model=os.getenv("EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL),
         )
         self.rag_engine = RAGEngine(self.vector_store)
         self.llm_manager = LLMManager()

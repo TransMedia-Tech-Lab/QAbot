@@ -38,13 +38,13 @@ backend/
 
 | 変数 | 用途 |
 | --- | --- |
-| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_SIGNING_SECRET` | Slack 認証情報 |
+| `SLACK_BOT_TOKEN`, `SLACK_APP_TOKEN`, `SLACK_SIGNING_SECRET` | Slack 認証情報（必須） |
 | `ESA_ACCESS_TOKEN`, `ESA_TEAM_NAME` | esa API へのアクセスに使用（`ESA_API_TOKEN` / `ESA_TEAM` でも可） |
-| `CHROMA_PERSIST_DIRECTORY`, `EMBEDDING_MODEL` | ベクトルDB保存先と埋め込みモデル |
-| `LOG_LEVEL`, `LOG_FILE` | loguru の出力設定 |
-| `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | ローカル LLM の設定（優先度1） |
+| `OLLAMA_MODEL` | ローカル LLM を使用する場合に設定（優先度1） |
 | `GEMINI_API_KEY` | Google Gemini API キー（優先度2） |
 | `ANTHROPIC_API_KEY` | Anthropic Claude API キー（優先度3） |
+
+**注意**: 設定値（`CHROMA_PERSIST_DIRECTORY`, `EMBEDDING_MODEL`, `LOG_LEVEL`, `LOG_FILE`, `OLLAMA_BASE_URL`など）は `ragbot/config.py` にデフォルト値として定義されています。必要に応じて環境変数で上書きできますが、通常は変更不要です。
 
 詳細は `.env.example` を参照してください。
 

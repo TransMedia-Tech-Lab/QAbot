@@ -12,6 +12,12 @@ backend_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if backend_dir not in sys.path:
     sys.path.insert(0, backend_dir)
 
+from ragbot.config import (
+    DEFAULT_CHROMA_PERSIST_DIRECTORY,
+    DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LOG_LEVEL,
+    DEFAULT_LOG_FILE_SYNC,
+)
 from ragbot.esa_client import EsaClient
 from ragbot.vector_store import VectorStore
 
@@ -22,7 +28,7 @@ def sync_database():
     load_dotenv()
     
     # ログ設定
-    log_file = os.getenv("LOG_FILE", "./logs/sync.log")
+    log_file = os.getenv("LOG_FILE", DEFAULT_LOG_FILE_SYNC)
     log_dir = os.path.dirname(log_file) or "."
     os.makedirs(log_dir, exist_ok=True)
     
@@ -30,7 +36,7 @@ def sync_database():
         log_file,
         rotation="1 week",
         retention="1 month",
-        level="INFO"
+        level=os.getenv("LOG_LEVEL", DEFAULT_LOG_LEVEL)
     )
     
     logger.info("=" * 50)
@@ -45,8 +51,8 @@ def sync_database():
         
         # ベクトルストアの初期化
         vector_store = VectorStore(
-            persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", "./chroma_db"),
-            embedding_model=os.getenv("EMBEDDING_MODEL", "intfloat/multilingual-e5-base")
+            persist_directory=os.getenv("CHROMA_PERSIST_DIRECTORY", DEFAULT_CHROMA_PERSIST_DIRECTORY),
+            embedding_model=os.getenv("EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
         )
         
         # 最終同期時刻を取得（簡易実装）
