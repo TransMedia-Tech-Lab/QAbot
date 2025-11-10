@@ -11,6 +11,7 @@ from slack_bolt.adapter.socket_mode import SocketModeHandler
 from . import knowledge
 from .config import Settings
 from .esa import EsaAnswerProvider, EsaClient
+from .gemma_provider import GemmaAnswerProvider
 
 
 class LabSlackBot:
@@ -20,6 +21,7 @@ class LabSlackBot:
         self._settings = settings
         self._logger = logging.getLogger(__name__)
         self._esa_provider: Optional[EsaAnswerProvider] = self._build_esa_provider()
+        self._gemma_provider: Optional[GemmaAnswerProvider] = self._build_gemma_provider()
         self._app = App(
             token=settings.bot_token,
             signing_secret=settings.signing_secret,
@@ -39,6 +41,20 @@ class LabSlackBot:
         self._logger.info("esa連携を有効化しました（team=%s）", self._settings.esa_team)
         return EsaAnswerProvider(client)
 
+    def _build_gemma_provider(self) -> Optional[GemmaAnswerProvider]:
+        """Gemma Provider を初期化（常に有効化）"""
+        try:
+            self._logger.info("Gemma Provider を初期化中...")
+            provider = GemmaAnswerProvider(
+                model_name=self._settings.gemma_model_name,
+                device=self._settings.gemma_device
+            )
+            self._logger.info("Gemma Provider を有効化しました")
+            return provider
+        except Exception as e:
+            self._logger.error(f"Gemma Provider の初期化に失敗しました: {e}", exc_info=True)
+            return None
+
     def _register_handlers(self) -> None:
         @self._app.event("app_mention")
         def handle_app_mention(body: Dict[str, Any], say, logger) -> None:  # type: ignore[no-untyped-def]
@@ -52,7 +68,9 @@ class LabSlackBot:
                 logger.error("Cannot reply: channel not found in event payload")
                 return
 
-            response = self._build_response(text)
+            # スレッドIDを生成（チャンネル + スレッドタイムスタンプ）
+            thread_id = f"{channel}:{thread_ts}" if thread_ts else f"{channel}:default"
+            response = self._build_response(text, thread_id)
 
             say_kwargs: Dict[str, Any] = {"text": response, "channel": channel}
             if thread_ts:
@@ -68,13 +86,16 @@ class LabSlackBot:
 
             text = event.get("text", "")
             channel = event.get("channel")
-            logger.info("DM received from %s: %s", event.get("user"), text)
+            user = event.get("user")
+            logger.info("DM received from %s: %s", user, text)
 
             if not channel:
                 logger.error("Cannot reply to DM: channel missing in payload")
                 return
 
-            response = self._build_response(text)
+            # DMはユーザーごとに会話履歴を管理
+            thread_id = f"dm:{user}"
+            response = self._build_response(text, thread_id)
             say(text=response, channel=channel)
 
         @self._app.event("app_home_opened")
@@ -91,7 +112,7 @@ class LabSlackBot:
                             "type": "section",
                             "text": {
                                 "type": "mrkdwn",
-                                "text": "研究室に関する質問でメンションしてください。例: `@QAbot 研究テーマは？`",
+                                "text": "Gemmaモデルを使用した研究室向けチャットボットです。メンションまたはDMで質問してください。",
                             },
                         },
                         {"type": "divider"},
@@ -99,7 +120,7 @@ class LabSlackBot:
                             "type": "section",
                             "text": {
                                 "type": "mrkdwn",
-                                "text": "登録済みキーワード: 研究テーマ / メンバー構成 / ミーティング / 設備 / 募集",
+                                "text": "💡 *使い方*\n• チャンネルでメンション: `@QAbot 質問内容`\n• DM: 直接メッセージを送信\n• スレッド: スレッド内で会話履歴を保持",
                             },
                         },
                     ],
@@ -111,10 +132,22 @@ class LabSlackBot:
         handler = SocketModeHandler(self._app, self._settings.app_token)
         handler.start()
 
-    def _build_response(self, message_text: str) -> str:
+    def _build_response(self, message_text: str, thread_id: str) -> str:
+        """メッセージに対する応答を生成"""
+        # メンション記号を削除してクリーンなメッセージを取得
+        cleaned_message = knowledge.clean_message(message_text)
+
+        # Gemma Providerを使用して応答を生成
+        if self._gemma_provider:
+            try:
+                return self._gemma_provider.get_response(thread_id, cleaned_message)
+            except Exception as e:
+                self._logger.error(f"Gemma応答生成に失敗: {e}", exc_info=True)
+
+        # Gemmaが使えない場合は従来のキーワードベース応答にフォールバック
         answer = None
         if self._esa_provider:
-            answer = self._esa_provider.lookup(message_text)
+            answer = self._esa_provider.lookup(cleaned_message)
         if not answer:
-            answer = knowledge.lookup_answer(message_text)
+            answer = knowledge.lookup_answer(cleaned_message)
         return answer if answer else self._settings.default_response
