@@ -6,9 +6,12 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "accelerate>=1.11.0",
+    "faiss-cpu>=1.9.0",
     "huggingface-hub[cli,hf-xet]>=0.36.0",
+    "numpy>=1.24.0",
     "python-dotenv>=1.2.1",
     "requests>=2.32.5",
+    "sentence-transformers>=3.3.1",
     "slack-bolt>=1.26.0",
     "timm>=1.0.22",
     "torch>=2.9.0",
