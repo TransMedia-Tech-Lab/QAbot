@@ -8,7 +8,7 @@
 ### 使い方
 
 1. `cd backend` して従来どおり `uv sync` / `uv run python main.py` を実行します。
-2. `.env.example` も `backend/` 以下にあるので、そこでトークンを設定してください。
+2. `.env.example` も `backend/` 以下にあるので、そこでトークンを設定してください。esa.io に記事をまとめている場合は `ESA_TEAM` / `ESA_API_TOKEN` を設定すると自動で記事検索して回答します。
 3. フロントエンドを追加したい場合は `frontend/` 内に任意のフレームワークで実装してください（現状は空ディレクトリ）。
 
 バックエンドの詳しいセットアップやFAQカスタマイズ手順は `backend/README.md` を参照してください。

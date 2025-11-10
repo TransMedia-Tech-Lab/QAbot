@@ -37,6 +37,15 @@ def build_default_entries() -> List[KnowledgeEntry]:
             ),
         ),
         KnowledgeEntry(
+            keywords=("どんな研究室", "研究室概要", "研究室について", "研究室紹介", "lab overview"),
+            answer=(
+                "当研究室は人とAIが協調する未来のインタフェースを探求しており、"
+                "言語処理・ロボティクス・知能化ソフトウェアの実験環境が揃っています。"
+                "Slackベースで情報共有し、週2回のミーティングと自主的な輪講で"
+                "プロジェクト横断の知見交換を行うオープンな文化です。"
+            ),
+        ),
+        KnowledgeEntry(
             keywords=("メンバー", "人数", "構成", "student"),
             answer=(
                 "現在は教授1名、助教1名、博士課程3名、修士8名、学部4名が所属しています。"

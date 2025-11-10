@@ -1,1 +1,5 @@
 .env
+.mypy_cache
+.python-version
+__pycache__/
+*.py[cod]

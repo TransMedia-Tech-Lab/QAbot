@@ -2,13 +2,15 @@
 
 from __future__ import annotations
 
-from typing import Any, Dict
+import logging
+from typing import Any, Dict, Optional
 
 from slack_bolt import App
 from slack_bolt.adapter.socket_mode import SocketModeHandler
 
-from .config import Settings
 from . import knowledge
+from .config import Settings
+from .esa import EsaAnswerProvider, EsaClient
 
 
 class LabSlackBot:
@@ -16,11 +18,26 @@ class LabSlackBot:
 
     def __init__(self, settings: Settings):
         self._settings = settings
+        self._logger = logging.getLogger(__name__)
+        self._esa_provider: Optional[EsaAnswerProvider] = self._build_esa_provider()
         self._app = App(
             token=settings.bot_token,
             signing_secret=settings.signing_secret,
         )
         self._register_handlers()
+
+    def _build_esa_provider(self) -> Optional[EsaAnswerProvider]:
+        if not (self._settings.esa_team and self._settings.esa_api_token):
+            self._logger.info("esa連携は未設定です（ESA_TEAM / ESA_API_TOKEN が見つかりません）")
+            return None
+
+        client = EsaClient(
+            team=self._settings.esa_team,
+            token=self._settings.esa_api_token,
+            base_url=self._settings.esa_base_url,
+        )
+        self._logger.info("esa連携を有効化しました（team=%s）", self._settings.esa_team)
+        return EsaAnswerProvider(client)
 
     def _register_handlers(self) -> None:
         @self._app.event("app_mention")
@@ -35,8 +52,7 @@ class LabSlackBot:
                 logger.error("Cannot reply: channel not found in event payload")
                 return
 
-            answer = knowledge.lookup_answer(text)
-            response = answer if answer else self._settings.default_response
+            response = self._build_response(text)
 
             say_kwargs: Dict[str, Any] = {"text": response, "channel": channel}
             if thread_ts:
@@ -58,8 +74,7 @@ class LabSlackBot:
                 logger.error("Cannot reply to DM: channel missing in payload")
                 return
 
-            answer = knowledge.lookup_answer(text)
-            response = answer if answer else self._settings.default_response
+            response = self._build_response(text)
             say(text=response, channel=channel)
 
         @self._app.event("app_home_opened")
@@ -95,3 +110,11 @@ class LabSlackBot:
         """Start Socket Mode handler."""
         handler = SocketModeHandler(self._app, self._settings.app_token)
         handler.start()
+
+    def _build_response(self, message_text: str) -> str:
+        answer = None
+        if self._esa_provider:
+            answer = self._esa_provider.lookup(message_text)
+        if not answer:
+            answer = knowledge.lookup_answer(message_text)
+        return answer if answer else self._settings.default_response
