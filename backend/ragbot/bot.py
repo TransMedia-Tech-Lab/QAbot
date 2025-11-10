@@ -85,6 +85,7 @@ class ResearchLabBot:
             user = event.get("user")
             text = event.get("text", "")
             channel = event.get("channel")
+            thread_ts = event.get("thread_ts") or event.get("ts")
             question = re.sub(r"<@[A-Z0-9]+>", "", text).strip()
 
             if not question:
@@ -92,7 +93,7 @@ class ResearchLabBot:
                 return
 
             logger.info("質問受信: %s (from %s)", question, user)
-            thinking_msg = say("🔍 情報を検索中...")
+            thinking_msg = say(text="🔍 情報を検索中...", thread_ts=thread_ts)
             answer, urls = self._generate_answer(question)
             response = self._format_response(question, answer, urls)
 
