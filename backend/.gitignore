@@ -3,3 +3,6 @@
 .python-version
 __pycache__/
 *.py[cod]
+logs/
+chroma_db/
+.last_sync
