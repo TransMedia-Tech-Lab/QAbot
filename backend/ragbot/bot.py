@@ -156,7 +156,7 @@ class ResearchLabBot:
         if urls:
             response_parts.append("")
             response_parts.append("📚 *参照記事:*")
-            for idx, url in enumerate(urls[:3], 1):
+            for idx, url in enumerate(urls, 1):
                 response_parts.append(f"{idx}. <{url}|記事を見る>")
         return "\n".join(response_parts)
 

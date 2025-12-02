@@ -126,17 +126,20 @@ class VectorStore:
         # 検索実行
         results = self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=top_k
+            n_results=top_k,
+            include=["documents", "metadatas", "distances"]
         )
         
         # 結果を整形
         search_results = []
         if results["ids"] and results["ids"][0]:
             for i in range(len(results["ids"][0])):
+                distance = results["distances"][0][i] if "distances" in results else None
                 search_results.append({
                     "text": results["documents"][0][i],
                     "metadata": results["metadatas"][0][i],
-                    "distance": results["distances"][0][i] if "distances" in results else None
+                    "distance": distance,
+                    "similarity": (1 - distance) if distance is not None else None,
                 })
         
         return search_results
@@ -281,6 +284,8 @@ class RAGEngine:
     def __init__(self, vector_store: VectorStore):
         self.vector_store = vector_store
         self.tokenizer = tiktoken.get_encoding("cl100k_base")
+        # 類似度の最低閾値（cos類似度）
+        self.min_similarity = float(os.getenv("RAG_MIN_SIMILARITY", "0.35"))
     
     def search_and_rank(self, query: str, top_k: int = 5) -> List[Dict]:
         """
@@ -299,7 +304,10 @@ class RAGEngine:
         # キーワード強調によるリランキング
         ranked_results = self._rerank_results(query, vector_results)
         
-        return ranked_results[:top_k]
+        # 類似度閾値でフィルタ
+        filtered_results = self._filter_by_similarity(ranked_results)
+        
+        return filtered_results[:top_k]
     
     def _rerank_results(self, query: str, results: List[Dict]) -> List[Dict]:
         """
@@ -318,6 +326,7 @@ class RAGEngine:
         for result in results:
             text = result["text"].lower()
             score = result.get("distance", 0)
+            result["similarity"] = result.get("similarity", (1 - score) if score is not None else None)
             
             # キーワードマッチングによるスコア調整
             keyword_boost = 0
@@ -336,6 +345,25 @@ class RAGEngine:
         ranked_results = sorted(results, key=lambda x: x["final_score"])
         
         return ranked_results
+
+    def _filter_by_similarity(self, results: List[Dict]) -> List[Dict]:
+        """
+        類似度閾値で結果をフィルタ
+        """
+        threshold = self.min_similarity
+        if threshold <= 0:
+            return results
+        
+        filtered = []
+        for result in results:
+            sim = result.get("similarity")
+            if sim is None or sim >= threshold:
+                filtered.append(result)
+        
+        if not filtered:
+            logger.info("類似度閾値を満たす結果がありません (threshold=%.2f)", threshold)
+        
+        return filtered
     
     def _extract_keywords(self, query: str) -> List[str]:
         """
