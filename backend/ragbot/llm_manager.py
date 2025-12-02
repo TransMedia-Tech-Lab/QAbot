@@ -45,7 +45,8 @@ class OllamaProvider(LLMProvider):
         system_prompt = """あなたは研究室の情報を提供するアシスタントです。
 以下の参照情報を基に、正確で簡潔な回答を日本語で提供してください。
 参照情報にない内容については推測せず、「情報が見つかりませんでした」と回答してください。
-重要な情報（鍵番号、パスワード等）は正確に伝えてください。"""
+重要な情報（鍵番号、パスワード等）は正確に伝えてください。
+回答は必ず日本語のみで記述し、英語で回答しないでください。"""
         
         user_message = f"""以下の参照情報を基に質問に回答してください。
 
@@ -96,7 +97,8 @@ class GeminiProvider(LLMProvider):
         """
         system_instruction = """あなたは研究室の情報を提供するアシスタントです。
 参照情報を基に正確で簡潔な回答を日本語で提供してください。
-参照情報にない内容は推測せず、「情報が見つかりませんでした」と回答してください。"""
+参照情報にない内容は推測せず、「情報が見つかりませんでした」と回答してください。
+回答は必ず日本語のみで記述し、英語で回答しないでください。"""
         
         full_prompt = f"""{system_instruction}
 
@@ -205,7 +207,10 @@ class LLMManager:
         remove_phrases = [
             "参照情報によると、",
             "参照情報を基に回答します。",
-            "以下が回答です："
+            "以下が回答です：",
+            "Based on the provided references, here's an answer:",
+            "Based on the provided references, here is an answer:",
+            "Based on the provided references,"
         ]
         
         for phrase in remove_phrases:
