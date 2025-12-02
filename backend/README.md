@@ -42,7 +42,6 @@ backend/
 | `ESA_ACCESS_TOKEN`, `ESA_TEAM_NAME` | esa API へのアクセスに使用（`ESA_API_TOKEN` / `ESA_TEAM` でも可） |
 | `OLLAMA_MODEL` | ローカル LLM を使用する場合に設定（優先度1） |
 | `GEMINI_API_KEY` | Google Gemini API キー（優先度2） |
-| `ANTHROPIC_API_KEY` | Anthropic Claude API キー（優先度3） |
 
 **注意**: 設定値（`CHROMA_PERSIST_DIRECTORY`, `EMBEDDING_MODEL`, `LOG_LEVEL`, `LOG_FILE`, `OLLAMA_BASE_URL`など）は `ragbot/config.py` にデフォルト値として定義されています。必要に応じて環境変数で上書きできますが、通常は変更不要です。
 
