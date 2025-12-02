@@ -1,8 +1,8 @@
 """
-LLMラッパー（Ollama, Gemini, Claude対応）
+LLMラッパー（Ollama, Gemini対応）
 """
 import os
-from typing import Optional, Dict, List
+from typing import Optional, Dict
 from abc import ABC, abstractmethod
 from loguru import logger
 
@@ -115,56 +115,6 @@ class GeminiProvider(LLMProvider):
             return "申し訳ありません。回答の生成中にエラーが発生しました。"
 
 
-class ClaudeProvider(LLMProvider):
-    """Anthropic Claude APIを使用"""
-    
-    def __init__(self, api_key: str):
-        try:
-            from anthropic import Anthropic
-            self.client = Anthropic(api_key=api_key)
-            logger.info("Claude API初期化完了")
-        except ImportError:
-            logger.error("anthropicライブラリがインストールされていません")
-            raise
-    
-    def generate(self, prompt: str, context: str) -> str:
-        """
-        Claude APIで回答を生成
-        
-        Args:
-            prompt: ユーザーの質問
-            context: 検索結果のコンテキスト
-            
-        Returns:
-            生成された回答
-        """
-        system_prompt = """あなたは研究室の情報を提供するアシスタントです。
-以下のルールに従って回答してください：
-1. 参照情報を基に正確で簡潔な回答を日本語で提供する
-2. 参照情報にない内容は推測せず「情報が見つかりませんでした」と回答する
-3. 重要な情報（鍵番号、パスワード等）は特に正確に伝える
-4. 回答は自然な日本語で、研究室メンバーに対して丁寧に説明する"""
-        
-        user_message = f"""参照情報:
-{context}
-
-質問: {prompt}"""
-        
-        try:
-            response = self.client.messages.create(
-                model="claude-3-sonnet-20240229",
-                max_tokens=1000,
-                system=system_prompt,
-                messages=[
-                    {"role": "user", "content": user_message}
-                ]
-            )
-            return response.content[0].text
-        except Exception as e:
-            logger.error(f"Claude API生成エラー: {e}")
-            return "申し訳ありません。回答の生成中にエラーが発生しました。"
-
-
 class LLMManager:
     """LLMプロバイダを管理するマネージャー"""
     
@@ -186,11 +136,6 @@ class LLMManager:
         if os.getenv("GEMINI_API_KEY"):
             logger.info("Gemini APIプロバイダを使用します")
             return GeminiProvider(api_key=os.getenv("GEMINI_API_KEY"))
-        
-        # Claude API（優先度3）
-        if os.getenv("ANTHROPIC_API_KEY"):
-            logger.info("Claude APIプロバイダを使用します")
-            return ClaudeProvider(api_key=os.getenv("ANTHROPIC_API_KEY"))
         
         # デフォルト（Ollama）
         logger.warning("LLM設定が見つかりません。デフォルトでOllamaを使用します")
